@@ -1,0 +1,3 @@
+/run/media/caleb/DATA/DATA/School/Waterloo/- 481,482 Design Project/Code/computer-vision/build/CMakeFiles/computer-vision.dir
+/run/media/caleb/DATA/DATA/School/Waterloo/- 481,482 Design Project/Code/computer-vision/build/CMakeFiles/edit_cache.dir
+/run/media/caleb/DATA/DATA/School/Waterloo/- 481,482 Design Project/Code/computer-vision/build/CMakeFiles/rebuild_cache.dir

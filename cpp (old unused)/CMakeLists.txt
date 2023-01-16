@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 2.8)
+project( computer-vision )
+find_package( OpenCV REQUIRED )
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+add_executable( computer-vision src/close-up.cpp )
+target_link_libraries( computer-vision ${OpenCV_LIBS} )
