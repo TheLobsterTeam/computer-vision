@@ -7,4 +7,4 @@ There are two options when running this program given as arguments 'close' or 'w
 
 Example commands to run the program:
 
- ''' python main.py close ''' or ''' python main.py wide ''' commands
+ ``` python main.py close ``` or ``` python main.py wide ``` commands
