@@ -10,16 +10,16 @@ using namespace std;
 const int CAM_CLOSE_UP = 2;
 const int CAM_WIDE_ANGLE = 2;
 
-int main(int argc, char** argv) {
-  VideoCapture cap(CAM_CLOSE_UP);  // capture the video from webcam
+int main(int argc, char **argv) {
+  VideoCapture cap(CAM_CLOSE_UP); // capture the video from webcam
 
-  if (!cap.isOpened())  // if not success, exit program
+  if (!cap.isOpened()) // if not success, exit program
   {
     cout << "Cannot open the web cam" << endl;
     return -1;
   }
 
-  namedWindow("Control");  // create a window called "Control"
+  namedWindow("Control"); // create a window called "Control"
 
   // Mask thresholds
   int hole_low_H = 0;
@@ -37,19 +37,19 @@ int main(int argc, char** argv) {
   int wire_high_V = 255;
 
   // Create trackbars for hole mask
-  createTrackbar("hole_low_H", "Control", &hole_low_H, 179);  // Hue
+  createTrackbar("hole_low_H", "Control", &hole_low_H, 179); // Hue
   createTrackbar("hole_high_H", "Control", &hole_high_H, 179);
-  createTrackbar("hole_low_S", "Control", &hole_low_S, 255);  // Saturation
+  createTrackbar("hole_low_S", "Control", &hole_low_S, 255); // Saturation
   createTrackbar("hole_high_S", "Control", &hole_high_S, 255);
-  createTrackbar("hole_low_V", "Control", &hole_low_V, 255);  // Value
+  createTrackbar("hole_low_V", "Control", &hole_low_V, 255); // Value
   createTrackbar("hole_high_V", "Control", &hole_high_V, 255);
 
   // Create trackbars for wire mask
-  createTrackbar("wire_low_H", "Control", &wire_low_H, 179);  // Hue
+  createTrackbar("wire_low_H", "Control", &wire_low_H, 179); // Hue
   createTrackbar("wire_high_H", "Control", &wire_high_H, 179);
-  createTrackbar("wire_low_S", "Control", &wire_low_S, 255);  // Saturation
+  createTrackbar("wire_low_S", "Control", &wire_low_S, 255); // Saturation
   createTrackbar("wire_high_S", "Control", &wire_high_S, 255);
-  createTrackbar("wire_low_V", "Control", &wire_low_V, 255);  // Value
+  createTrackbar("wire_low_V", "Control", &wire_low_V, 255); // Value
   createTrackbar("wire_high_V", "Control", &wire_high_V, 255);
 
   int iLastX = -1;
@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
     Mat imgOriginal;
     bool bSuccess = cap.read(imgOriginal);
 
-    if (!bSuccess)  // if not success, break loop
+    if (!bSuccess) // if not success, break loop
     {
       cout << "Cannot read a frame from video stream" << endl;
       break;
@@ -100,7 +100,7 @@ int main(int argc, char** argv) {
     bitwise_not(imgHoleThresholded, imgHoleThresholded);
     bitwise_not(imgWireThresholded, imgWireThresholded);
 
-    vector<vector<Point> > contours;
+    vector<vector<Point>> contours;
     vector<Vec4i> hierarchy;
     findContours(imgWireThresholded, contours, hierarchy, RETR_TREE,
                  CHAIN_APPROX_SIMPLE);
@@ -123,7 +123,7 @@ int main(int argc, char** argv) {
 
       if (iLastX >= 0 && iLastY >= 0 && posX >= 0 && posY >= 0) {
         // Draw a red line from the previous point to the current point
-        circle(imgLines, Point(posX, posY), 10,  // Point(iLastX, iLastY),
+        circle(imgLines, Point(posX, posY), 10, // Point(iLastX, iLastY),
                Scalar(0, 0, 255), 2);
       }
 
@@ -141,7 +141,7 @@ int main(int argc, char** argv) {
     // Show the original image
     imshow("Original", imgOriginal);
 
-    if (waitKey(30) == 27) {  // If 'esc' key is pressed, break loop
+    if (waitKey(30) == 27) { // If 'esc' key is pressed, break loop
       cout << "esc key is pressed by user" << endl;
       break;
     }
