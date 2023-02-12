@@ -1,16 +1,25 @@
 import cv2
 import numpy as np
 import sys
+import math
+
+import random
 
 CAMERA_ID_CLOSE_UP   = 0
 CAMERA_ID_WIDE_ANGLE = 2
 
 HOLE_LHSV = (0, 0, 16)
-HOLE_HHSV = (179, 255, 255)
+HOLE_HHSV = (179, 255, 65)
 WIRE_LHSV = (42, 0, 172)
 WIRE_HHSV = (179, 255, 255)
 PCB_LHSV = (42, 0, 172)
 PCB_HHSV = (179, 255, 255)
+
+H_CENTER = 1042.5
+H_TOLERANCE = 32.5
+V_CENTER = 315
+V_TOLERANCE = 20
+P2MM = 1
 
 
 
@@ -24,7 +33,7 @@ def start_video(camera_id):
 
 
 
-def control_gui():
+def init_control_gui():
     cv2.namedWindow('Controls')
 
     # Create trackbars for hole mask
@@ -52,6 +61,16 @@ def nothing(x):
 
 
 
+def update_control_values():
+    hole_low = (cv2.getTrackbarPos('hole_LH','Controls'), cv2.getTrackbarPos('hole_LS','Controls'), cv2.getTrackbarPos('hole_LV','Controls'))
+    hole_high = (cv2.getTrackbarPos('hole_HH','Controls'), cv2.getTrackbarPos('hole_HS','Controls'), cv2.getTrackbarPos('hole_HV','Controls'))
+    wire_low = (cv2.getTrackbarPos('wire_LH','Controls'), cv2.getTrackbarPos('wire_LS','Controls'), cv2.getTrackbarPos('wire_LV','Controls'))
+    wire_high = (cv2.getTrackbarPos('wire_HH','Controls'), cv2.getTrackbarPos('wire_HS','Controls'), cv2.getTrackbarPos('wire_HV','Controls'))
+    canny_thresh = (cv2.getTrackbarPos('canny_L','Controls'), cv2.getTrackbarPos('canny_H','Controls'))
+    return (hole_low, hole_high, wire_low, wire_high, canny_thresh)
+
+
+
 def mask(img, low, high, canny):
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV) # maybe dont need this or maybe use RGB2HSV?
     # Smoothing
@@ -64,7 +83,7 @@ def mask(img, low, high, canny):
 
 def region_of_interest(img, vertices):
     mask = np.zeros_like(img)   
-    
+   
     #defining a 3 channel or 1 channel color to fill the mask with depending on the input image
     if len(img.shape) > 2:
         channel_count = img.shape[2]  # i.e. 3 or 4 depending on your image
@@ -88,17 +107,69 @@ def draw_line(img, point1, point2):
 
 
 
+def draw_circle(img, center, radius):
+    circle = np.zeros_like(img)
+    cv2.circle(circle, center, radius, [0,0,255], 20)
+    return cv2.addWeighted(img, 0.8, circle, 1., 0.)
+
+
+
+def bounding_box(img):
+    contours, hc = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    #print("HERE:", contours[0])
+    #print("Size: ",len(contours))
+    #crop = cv2.drawContours(crop, contours, -1, (0,255,0), 30)
+
+    contours_poly = [None]*len(contours)
+    boundRect = [None]*len(contours)
+    centers = [None]*len(contours)
+    radius = [None]*len(contours)
+    closest = (9999, 9999)
+    for i, c in enumerate(contours):
+        contours_poly[i] = cv2.approxPolyDP(c, 3, True)
+        boundRect[i] = cv2.boundingRect(contours_poly[i])
+        centers[i], radius[i] = cv2.minEnclosingCircle(contours_poly[i])
+        #center = (boundRect[i][0]+(boundRect[i][2]/2), boundRect[i][1]+(boundRect[i][3]/2))
+        #print("cen:", centers[i], " found: ", center)
+        if (math.dist(centers[i], (H_CENTER, V_CENTER)) < math.dist(closest, (H_CENTER, V_CENTER))):
+            closest = centers[i]
+            closest_index = i
+            print("Closest:",math.dist(closest, (H_CENTER, V_CENTER)))
+
+    drawing = np.zeros_like(img)
+    i = closest_index
+    #for i in range(len(contours)):
+    color = (random.randint(0,256), random.randint(0,256), random.randint(0,256))
+    cv2.drawContours(drawing, contours_poly, i, color)
+    cv2.rectangle(drawing, (int(boundRect[i][0]), int(boundRect[i][1])), (int(boundRect[i][0]+boundRect[i][2]), int(boundRect[i][1]+boundRect[i][3])), color, 2)
+    cv2.circle(drawing, (int(centers[i][0]), int(centers[i][1])), int(radius[i]), color, 2)
+
+    return drawing, centers[closest_index]
+
+
+
 def align(hole_pos):
-    HLEFT = 1010
-    HRIGHT = 1075
-    P2MM = 1
-    if (hole_pos[0] < HLEFT):
-        print("Right by ", (hole_pos[0] - HLEFT)*P2MM)
-    elif (hole_pos[0] > HRIGHT):
-        print("Left by ", (hole_pos[0] - HLEFT)*P2MM)
+    adjustment = [0, 0]
+    
+    # Horizontal alignment
+    h_error = H_CENTER - hole_pos[0]
+    if (abs(h_error) > H_TOLERANCE):
+        print("Horizontal by ", h_error*P2MM)
+        adjustment[0] = h_error*P2MM
     else:
-        # TODO: Vertical alignment
         print("Horizontally centered.")
+        adjustment[0] = 0
+
+    # Vertical alignment
+    v_error = V_CENTER - hole_pos[1]
+    if (abs(v_error) > V_TOLERANCE):
+        print("Vertical by ", v_error*P2MM)
+        adjustment[1] = v_error*P2MM
+    else:
+        print("Vertically centered.")
+        adjustment[1] = 0
+
+    return adjustment
 
 
 
@@ -121,26 +192,34 @@ def display_four(name, topLeft, topRight, botLeft, botRight):
 def camera_close_up():
     print("Starting close up wire feeding process.")
     video = start_video(CAMERA_ID_CLOSE_UP)
-    control_gui()
+    init_control_gui()
     while(True):
         ret, frame = video.read()
-        hole_low = (cv2.getTrackbarPos('hole_LH','Controls'), cv2.getTrackbarPos('hole_LS','Controls'), cv2.getTrackbarPos('hole_LV','Controls'))
-        hole_high = (cv2.getTrackbarPos('hole_HH','Controls'), cv2.getTrackbarPos('hole_HS','Controls'), cv2.getTrackbarPos('hole_HV','Controls'))
-        wire_low = (cv2.getTrackbarPos('wire_LH','Controls'), cv2.getTrackbarPos('wire_LS','Controls'), cv2.getTrackbarPos('wire_LV','Controls'))
-        wire_high = (cv2.getTrackbarPos('wire_HH','Controls'), cv2.getTrackbarPos('wire_HS','Controls'), cv2.getTrackbarPos('wire_HV','Controls'))
-        canny_thresh = (cv2.getTrackbarPos('canny_L','Controls'), cv2.getTrackbarPos('canny_H','Controls'))
+        frame = frame[175:1080, 0:1920]
+
+        # Masking
+        (hole_low, hole_high, wire_low, wire_high, canny_thresh) = update_control_values()
         hole, hmask, hblur = mask(frame, hole_low, hole_high, canny_thresh)
         wire, wmask, wblur = mask(frame, wire_low, wire_high, canny_thresh)
+        
+        # ROI - remove snips in hole image and crop wire feeding image
         crop = region_of_interest(frame, [np.array([[1010,660],[1075,660],[1075,120],[1010,120]])])
         wire = region_of_interest(wmask, [np.array([[1010,660],[1075,660],[1075,120],[1010,120]])])
+        hole = region_of_interest(hmask, [np.array([[1015,650],[765,75],[0,75],[0,1080],[1920,1080],[1920,0],[1300,75],[1300,590],[1015,100]])])
+        
+        # Get bounding box around closest hole
+        draw, hole_pos = bounding_box(hole)
+
+
+
         combo = cv2.bitwise_or(wire, hole)
         crop = draw_line(frame, (1042, 120), (1042, 700))
         cv2.imshow('Controls', crop)
-        display_four('wire', wmask, hole, wire, combo)
+        display_four('wire', hmask, hole, draw, combo)
 
         # TODO: get hole pos and circle
 
-        align((1040, 550))
+        align(hole_pos)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
