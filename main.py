@@ -5,11 +5,11 @@ import math
 
 import random
 
-CAMERA_ID_CLOSE_UP   = 0
+CAMERA_ID_CLOSE_UP   = 2
 CAMERA_ID_WIDE_ANGLE = 2
 
-HOLE_LHSV = (0, 0, 16)
-HOLE_HHSV = (179, 255, 65)
+HOLE_LHSV = (0, 0, 0)
+HOLE_HHSV = (179, 255, 33)
 WIRE_LHSV = (42, 0, 172)
 WIRE_HHSV = (179, 255, 255)
 PCB_LHSV = (42, 0, 172)
@@ -19,7 +19,7 @@ H_CENTER = 1042.5
 H_TOLERANCE = 32.5
 V_CENTER = 315
 V_TOLERANCE = 20
-P2MM = 1
+P2MM = 0.0232222        #51/1920, 24/1080
 
 
 
@@ -109,7 +109,7 @@ def draw_line(img, point1, point2):
 
 def draw_circle(img, center, radius):
     circle = np.zeros_like(img)
-    cv2.circle(circle, center, radius, [0,0,255], 20)
+    cv2.circle(circle, (math.floor(center[0]), math.floor(center[1])), math.floor(radius), [0,0,255], 20)
     return cv2.addWeighted(img, 0.8, circle, 1., 0.)
 
 
@@ -134,17 +134,20 @@ def bounding_box(img):
         if (math.dist(centers[i], (H_CENTER, V_CENTER)) < math.dist(closest, (H_CENTER, V_CENTER))):
             closest = centers[i]
             closest_index = i
-            print("Closest:",math.dist(closest, (H_CENTER, V_CENTER)))
-
+            #print("Closest:",math.dist(closest, (H_CENTER, V_CENTER)))
+    
     drawing = np.zeros_like(img)
-    i = closest_index
+    
+    if (len(contours) == 0):
+        return img, (0,0), 10
+    else:
+        i = closest_index
     #for i in range(len(contours)):
-    color = (random.randint(0,256), random.randint(0,256), random.randint(0,256))
-    cv2.drawContours(drawing, contours_poly, i, color)
-    cv2.rectangle(drawing, (int(boundRect[i][0]), int(boundRect[i][1])), (int(boundRect[i][0]+boundRect[i][2]), int(boundRect[i][1]+boundRect[i][3])), color, 2)
-    cv2.circle(drawing, (int(centers[i][0]), int(centers[i][1])), int(radius[i]), color, 2)
+    cv2.drawContours(drawing, contours_poly, i, (255,255,255))
+    #cv2.rectangle(drawing, (int(boundRect[i][0]), int(boundRect[i][1])), (int(boundRect[i][0]+boundRect[i][2]), int(boundRect[i][1]+boundRect[i][3])), 255,255,255, 2)
+    cv2.circle(drawing, (int(centers[i][0]), int(centers[i][1])), int(radius[i]), (255,255,255), 2)
 
-    return drawing, centers[closest_index]
+    return drawing, centers[closest_index], radius[closest_index]
 
 
 
@@ -154,7 +157,7 @@ def align(hole_pos):
     # Horizontal alignment
     h_error = H_CENTER - hole_pos[0]
     if (abs(h_error) > H_TOLERANCE):
-        print("Horizontal by ", h_error*P2MM)
+        print("Horizontal by ", h_error*P2MM, "mm")
         adjustment[0] = h_error*P2MM
     else:
         print("Horizontally centered.")
@@ -163,7 +166,7 @@ def align(hole_pos):
     # Vertical alignment
     v_error = V_CENTER - hole_pos[1]
     if (abs(v_error) > V_TOLERANCE):
-        print("Vertical by ", v_error*P2MM)
+        print("Vertical by ", v_error*P2MM, "mm")
         adjustment[1] = v_error*P2MM
     else:
         print("Vertically centered.")
@@ -208,14 +211,14 @@ def camera_close_up():
         hole = region_of_interest(hmask, [np.array([[1015,650],[765,75],[0,75],[0,1080],[1920,1080],[1920,0],[1300,75],[1300,590],[1015,100]])])
         
         # Get bounding box around closest hole
-        draw, hole_pos = bounding_box(hole)
+        draw, hole_pos, rad = bounding_box(hole)
 
-
+        frame = draw_circle(frame, hole_pos, rad)
 
         combo = cv2.bitwise_or(wire, hole)
-        crop = draw_line(frame, (1042, 120), (1042, 700))
+        crop = draw_line(frame, (1017, 120), (1017, 600))
         cv2.imshow('Controls', crop)
-        display_four('wire', hmask, hole, draw, combo)
+        display_four('wire', hmask, hole, wire, combo)
 
         # TODO: get hole pos and circle
 
