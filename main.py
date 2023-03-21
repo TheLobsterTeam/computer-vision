@@ -84,7 +84,7 @@ def region_of_interest(img, vertices):
         ignore_mask_color = (255,) * channel_count
     else:
         ignore_mask_color = 255
-    # Filling pixels inside the polygon defined by "vertices" with the fill color    
+    # Filling pixels inside the polygon defined by "vertices" with the fill color
     cv2.fillPoly(mask, vertices, ignore_mask_color)
     # Returning the image only where mask pixels are nonzero
     masked_image = cv2.bitwise_and(img, mask)
@@ -100,7 +100,7 @@ def bounding_box(img):
     contours_poly = [None]*len(contours)
     boundRect = [None]*len(contours)
     closest = (9999, 9999, 0, 0)
-    
+
     for i, c in enumerate(contours):
         contours_poly[i] = cv2.approxPolyDP(c, 3, True)
         boundRect[i] = cv2.boundingRect(contours_poly[i])
@@ -134,13 +134,13 @@ def bounding_circle(img, wire_pos):
     centers = [None]*len(contours)
     radius = [None]*len(contours)
     closest = (9999, 9999)
-    
+
     for i, c in enumerate(contours):
         contours_poly[i] = cv2.approxPolyDP(c, 3, True)
         centers[i], radius[i] = cv2.minEnclosingCircle(contours_poly[i])
         if (math.hypot(centers[i][0] - wire_pos[0], centers[i][1] - wire_pos[1]) < math.hypot(closest[0] - wire_pos[0], closest[1] - wire_pos[1])):
             closest = centers[i]
-            closest_index = i    
+            closest_index = i
     # If no holes are found default to top middle to move the PCB down to reveal holes under the cutters
     if (len(contours) == 0):
         return img, (H_CENTER,0), None
@@ -209,7 +209,7 @@ def via_detection(video, DEBUG=0):
     # Get bounding around closest hole and the wire
     draw, wire_rect, wire_tip = bounding_box(wire)
     draw2, hole_pos, rad = bounding_circle(hole, wire_tip)
-    if wire_tip == None or rad == None:
+    if wire_tip is None or rad is None:
         adjustments = None
     else:
         # Calculate adjustments
@@ -244,7 +244,7 @@ def camera_close_up():
         # Show detections on raw camera frame
         cv2.rectangle(frame, (int(wire_rect[0]), int(wire_rect[1])), (int(wire_rect[0]+wire_rect[2]), int(wire_rect[1]+wire_rect[3])), (0,255,0), 2)
         cv2.circle(frame, (int(wire_tip[0]), int(wire_tip[1])), 2, [255,0,0], 10)
-        cv2.circle(frame, (int(hole_pos[0]), int(hole_pos[1])), rad, [0,0,255], 10)
+        cv2.circle(frame, (int(hole_pos[0]), int(hole_pos[1])), int(rad), [0,0,255], 10)
         # Display video
         combo = cv2.bitwise_or(draw, draw2)
         cv2.imshow('crop', frame)
