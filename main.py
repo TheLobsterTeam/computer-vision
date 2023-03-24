@@ -8,14 +8,15 @@ CAMERA_ID_CLOSE_UP   = 0
 CAMERA_ID_WIDE_ANGLE = 2
 
 HOLE_LHSV = (0, 0, 0)
-HOLE_HHSV = (179, 255, 8)
-WIRE_LHSV = (0, 65, 115)
+HOLE_HHSV = (179, 255, 31)
+WIRE_LHSV = (0, 135, 85)
 WIRE_HHSV = (179, 255, 255)
 PCB_LHSV = (42, 0, 172)
 PCB_HHSV = (179, 255, 255)
 
 H_CENTER = 375
 TOLERANCE = 0.95
+HOLE = (370,91)
 P2MM = 0.03878049    #wire tube diam: 1.59/41=0.03878049, H_screen 27.65/800=0.03456 (not accurate), V_screen 21.35/520=0.041 (not accurate),tube to tip of L cutter: 6.72/
 
 
@@ -29,6 +30,7 @@ def start_video(camera_id):
         return None
     video.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     video.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    video.set(cv2.CAP_PROP_BUFFERSIZE, 1)    
     return video
 
 
@@ -190,6 +192,7 @@ def init_flip():
 
 
 def via_detection(video, DEBUG=0):
+    video.set(cv2.CAP_PROP_POS_FRAMES, 0)    
     ret, frame = video.read()
     frame = frame[200:720, 300:1100]
     # Masking
@@ -202,20 +205,31 @@ def via_detection(video, DEBUG=0):
         wmask = mask(frame, WIRE_LHSV, WIRE_HHSV)
     # ROI - remove snips in hole image and crop wire feeding image
     hole = region_of_interest(hmask,\
-        [np.array([[340,50],[340,230],[315,230],[295,200],[220,0],\
-        [0,0],[0,720],[1080,720],[1080,0],\
-        [595,0],[595,200],[480,50]])])  # 1st line: Stationary clipper, 3rd line: Moving clipper
+        [np.array([[365,50],[365,200],[480,200],[480,50]])])  # 1st line: Stationary clipper, 3rd line: Moving clipper
     wire = region_of_interest(wmask, [np.array([[H_CENTER - 40,450],[H_CENTER + 40,450],[H_CENTER + 40,60],[H_CENTER - 40,60]])])
+    cv2.rectangle(frame, (365, 50), (480, 200), (0,255,0), 2)
+
+    #370, 91
+
+        #[np.array([[340,50],[340,230],[315,230],[295,200],[220,0],\
+        #[0,0],[0,720],[1080,720],[1080,0],\
+        #[595,0],[595,200],[480,50]])])  # 1st line: Stationary clipper, 3rd line: Moving clipper
     # Get bounding around closest hole and the wire
-    draw, wire_rect, wire_tip = bounding_box(wire)
-    draw2, hole_pos, rad = bounding_circle(hole, wire_tip)
-    if wire_tip is None or rad is None:
+    #draw, wire_rect, wire_tip = bounding_box(wire)
+    #if wire_tip is None:
+    #    hole_pos = (0,0)
+    #    draw2 = np.zeros_like(hmask)
+    #    rad = 100
+    #    adjustments = None
+    #else:
+    draw2, hole_pos, rad = bounding_circle(hole, HOLE)
+    if rad is None:
         adjustments = None
     else:
         # Calculate adjustments
-        adjustments = align(hole_pos, rad, wire_tip)
+        adjustments = align(hole_pos, rad, HOLE)
     if DEBUG:
-        return adjustments, frame, wire_rect, wire_tip, hole_pos, rad, draw, draw2, hmask, hole, wire
+        return adjustments, frame, HOLE, hole_pos, rad, draw2, hmask, hole, wire
     return adjustments
 
 
@@ -236,17 +250,22 @@ def camera_close_up():
     if video == None:
         exit()
     while(True):
-        adjustments, frame, wire_rect, wire_tip, hole_pos, rad, draw, draw2, hmask, hole, wire = via_detection(video, 1)
+        adjustments, frame, wire_tip, hole_pos, rad, draw2, hmask, hole, wire = via_detection(video, 1)
+        print(wire_tip)
+        print(hole_pos)
+        print(rad)
+        #cv2.imshow('crop', frame)
+        #cv2.waitKey(500)
         if adjustments == None:
             print("Wire or hole not found.")
             continue
 
         # Show detections on raw camera frame
-        cv2.rectangle(frame, (int(wire_rect[0]), int(wire_rect[1])), (int(wire_rect[0]+wire_rect[2]), int(wire_rect[1]+wire_rect[3])), (0,255,0), 2)
+        #cv2.rectangle(frame, (int(wire_rect[0]), int(wire_rect[1])), (int(wire_rect[0]+wire_rect[2]), int(wire_rect[1]+wire_rect[3])), (0,255,0), 2)
         cv2.circle(frame, (int(wire_tip[0]), int(wire_tip[1])), 2, [255,0,0], 10)
         cv2.circle(frame, (int(hole_pos[0]), int(hole_pos[1])), int(rad), [0,0,255], 10)
         # Display video
-        combo = cv2.bitwise_or(draw, draw2)
+        combo = draw2
         cv2.imshow('crop', frame)
         display_four('wire', hmask, hole, wire, combo)
         if cv2.waitKey(100) & 0xFF == ord('q'):
